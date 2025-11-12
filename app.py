@@ -1,8 +1,7 @@
-
 import streamlit as st
 import pandas as pd
 import joblib
-import io
+import numpy as np
 
 # Load the model and scaler
 try:
@@ -14,7 +13,7 @@ except Exception as e:
     st.stop()
 
 st.title('Maternal Health Risk Prediction')
-st.write('Enter the patient\"s physiological data to predict the maternal health risk level.')
+st.write('Enter the patient\'s physiological data to predict the maternal health risk level.')
 
 # Input fields for features as text boxes
 age_str = st.text_input('Age', value='25')
@@ -48,65 +47,25 @@ if st.button('Predict Risk'):
     
     body_temp = body_temp_input
     if body_temp_unit == 'Fahrenheit':
-        body_temp = (body_temp_input - 32) * 5/9 # Convert Fahrenheit to Celsius
+        body_temp = (body_temp_input - 32) * 5/9  # Convert to Celsius if Fahrenheit
 
-    # Check if any validation failed
-    if any(x is None for x in [age, systolic_bp, diastolic_bp, bs, body_temp, heart_rate]):
+    # Check if all conversions were successful
+    if None in [age, systolic_bp, diastolic_bp, bs, body_temp, heart_rate]:
         st.stop()
 
-    # Create a DataFrame from inputs
-    input_data = pd.DataFrame([{
-        'Age': age,
-        'SystolicBP': systolic_bp,
-        'DiastolicBP': diastolic_bp,
-        'BS': bs,
-        'BodyTemp': body_temp,
-        'HeartRate': heart_rate
-    }])
+    # Prepare features for prediction
+    features = pd.DataFrame([[age, systolic_bp, diastolic_bp, bs, body_temp, heart_rate]],
+                            columns=['Age', 'SystolicBP', 'DiastolicBP', 'BS', 'BodyTemp', 'HeartRate'])
 
-    # Scale the input data
-    scaled_data = scaler.transform(input_data)
-    scaled_df = pd.DataFrame(scaled_data, columns=input_data.columns)
+    # Scale the features using the loaded scaler
+    scaled_features = scaler.transform(features)
 
     # Make prediction
-    prediction = model.predict(scaled_data)
-    prediction_proba = model.predict_proba(scaled_data)
+    prediction_numeric = model.predict(scaled_features)[0]
 
-    # Map prediction to risk level string
-    risk_levels = {0: 'low risk', 1: 'mid risk', 2: 'high risk'}
-    predicted_risk = risk_levels[prediction[0]]
+    # Map numeric prediction to risk levels
+    # Assuming the 'Level' column was encoded as 0, 1, 2 for 'low', 'mid', 'high' risk
+    risk_levels = {0: 'Low Risk', 1: 'Mid Risk', 2: 'High Risk'}
+    predicted_risk = risk_levels.get(prediction_numeric, 'Unknown Risk Level')
 
-    st.subheader('Prediction Result:')
-    st.markdown(f"Predicted Risk Level: **{predicted_risk.upper()}**")
-
-    st.subheader('Detailed Prediction Information:')
-    
-    # Prepare results for the table
-    results_data = {
-        'Feature': input_data.columns.tolist() + ['Predicted Risk'] + [f'Probability ({rl})' for rl in risk_levels.values()],
-        'Original Value': input_data.iloc[0].tolist() + ['-'] + ['-' for _ in risk_levels.values()],
-        'Scaled Value': scaled_df.iloc[0].tolist() + ['-'] + ['-' for _ in risk_levels.values()]
-    }
-    # Update 'Original Value' and 'Scaled Value' for 'Predicted Risk' and Probabilities for display
-    results_data['Original Value'][-len(risk_levels):] = ['-' for _ in risk_levels.values()]
-    results_data['Scaled Value'][-len(risk_levels):] = ['-' for _ in risk_levels.values()]
-
-    # Add predicted risk and probabilities to the table
-    results_data['Original Value'][len(input_data.columns)] = predicted_risk.upper()
-    results_data['Scaled Value'][len(input_data.columns)] = predicted_risk.upper() # Re-using scaled column for display
-    for i, (level, prob) in enumerate(zip(risk_levels.values(), prediction_proba[0])):
-        results_data['Original Value'][len(input_data.columns) + 1 + i] = f'{prob:.4f}'
-        results_data['Scaled Value'][len(input_data.columns) + 1 + i] = f'{prob:.4f}' # Re-using scaled column for display
-
-    results_df_display = pd.DataFrame(results_data)
-    st.dataframe(results_df_display)
-
-    # Add export functionality
-    csv_buffer = io.StringIO()
-    results_df_display.to_csv(csv_buffer, index=False)
-    st.download_button(
-        label="Download Prediction Data as CSV",
-        data=csv_buffer.getvalue(),
-        file_name="maternal_health_prediction_results.csv",
-        mime="text/csv"
-    )
+    st.success(f"Predicted Maternal Health Risk: **{predicted_risk}**")
