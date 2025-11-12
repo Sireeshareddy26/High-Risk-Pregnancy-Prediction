@@ -5,8 +5,8 @@ import numpy as np
 
 # Load the model and scaler
 try:
-    model = joblib.load('best_maternal_health_risk_model.pkl')
-    scaler = joblib.load('scaler.pkl')
+    model = joblib.load('best_maternal_health_risk_model (5).pkl')
+    scaler = joblib.load('scaler (5).pkl')
     print("Model and scaler loaded successfully.")
 except Exception as e:
     st.error(f"Error loading model or scaler: {e}")
